@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loop Word Search</title>
+    <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+    <!-- Load Tailwind CSS for utility classes --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font --><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for the dark, tech, and glassy look */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* DEEPER BLUE/BLACK GRADIENT */
+            background: linear-gradient(135deg, #020420 0%, #1e3a8a 50%, #000000 100%);
+            min-height: 100vh;
+            color: #e2e8f0; /* Light text color */
+        }
+        /* Glassy effect for UI containers */
+        .glassy-card {
+            background-color: rgba(30, 41, 59, 0.4); /* Dark blue transparency */
+            border: 1px solid rgba(56, 189, 248, 0.2); /* Light blue border for tech look */
+            backdrop-filter: blur(10px); /* The key for the glassy effect */
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        /* Grid Cell Styling */
+        .grid-cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            user-select: none;
+            border: 1px solid rgba(255, 255, 255, 0.05); /* Subtle grid lines */
+            color: #64748b; /* Muted letter color */
+        }
+        /* Style for currently selected cell (MORE TRANSPARENT) */
+        .selecting {
+            /* Now serves as the persistent temporary highlight */
+            background-color: rgba(96, 165, 250, 0.15); /* Lighter blue highlight */
+            color: #ffffff;
+        }
+        /* Style for word found */
+        .found {
+            color: #ffffff;
+            animation: found-glow 1s ease-in-out infinite alternate;
+        }
+        @keyframes found-glow {
+            from { box-shadow: 0 0 3px rgba(16, 185, 129, 0.7); }
+            to { box-shadow: 0 0 10px rgba(16, 185, 129, 1); }
+        }
+        /* Header Logo Styling: Contains the SVG for the LOOP logo */
+        #logo-container {
+            height: 50px; /* Fixed height for the logo */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        /* Style for the logo SVG to control size */
+        #logo-svg {
+            max-height: 100%;
+            width: auto;
+        }
+
+        /* Styling for the Clickable Found Word Item */
+        .found-word-item {
+            color: #ffffff; 
+            padding: 0.25rem 0.5rem; /* p-1 px-2 */
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: 700; /* font-bold */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); /* shadow-md */
+            font-size: 0.875rem; /* text-sm */
+            overflow: hidden; /* truncate */
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-left: auto;
+            margin-right: auto;
+            max-width: 100%;
+            display: inline-block;
+            cursor: pointer; /* Indicate it's clickable */
+            transition: background-color 0.2s, filter 0.2s;
+        }
+        .found-word-item:hover {
+            filter: brightness(1.2); /* Subtle hover effect */
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5); /* Blue glow on hover */
+        }
+
+        /* Styling for the dynamic word display */
+        #selection-display {
+            font-size: 2.25rem; /* text-3xl */
+            font-weight: 900; /* font-black */
+            text-shadow: 0 0 5px rgba(56, 189, 248, 0.7);
+            color: #ffffff;
+            letter-spacing: 0.1em;
+            transition: opacity 0.1s ease;
+            min-height: 2.5rem; /* Ensure minimum height even when default title is showing */
+        }
+        
+        /* Default state of the selection display (static title) */
+        .default-title {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: 700; /* font-bold */
+            color: #ffffff;
+            text-shadow: none;
+            letter-spacing: normal;
+        }
+
+        /* Loader for modal */
+        .loader {
+            border: 4px solid #f3f3f333; 
+            border-top: 4px solid #38bdf8; 
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <div class="p-4 sm:p-8 flex-grow">
+        <div class="max-w-5xl mx-auto">
+            <!-- Centered Logo/Title -->
+            <header class="text-center mb-8">
+                <!-- LOOP Logo SVG -->
+                <div id="logo-container">
+                   <img width="10%" src="looplogo.png" alt="Loop Logo">
+                </div>
+
+                <!-- Updated Dynamic Title -->
+                <div id="dynamic-title-container" class="min-h-[2.5rem] flex justify-center items-center">
+                    <h2 id="selection-display" class="default-title">Word Search 🔍</h2>
+                </div>
+            </header>
+
+            <!-- Game Interface Container -->
+            <main class="flex flex-col gap-8 items-center">
+                
+                <!-- 1. Word Search Grid (Centered and sized) -->
+                <div id="grid-container" class="glassy-card p-4 w-full max-w-lg rounded-xl shadow-lg">
+                    <div id="word-grid" class="grid grid-cols-10 gap-0.5 aspect-square">
+                        <!-- Cells go here -->
+                    </div>
+                </div>
+
+                <!-- 2. Found Words List Panel -->
+                <div class="glassy-card p-6 w-full max-w-lg rounded-xl shadow-lg">
+                    <h2 class="text-xl font-bold mb-4 border-b border-blue-400/20 pb-2">
+                        Found Words (<span id="found-count">0</span>)
+                    </h2>
+                    <ul id="found-words-list" class="grid grid-cols-2 gap-3 text-center sm:grid-cols-3 lg:grid-cols-4">
+                        <!-- Words are added here -->
+                    </ul>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- LLM Fact Modal -->
+    <div id="llm-fact-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div class="glassy-card p-6 w-full max-w-lg mx-4 md:max-w-xl rounded-xl shadow-2xl relative">
+            <h3 id="modal-title" class="text-2xl font-black text-blue-300 mb-4"></h3>
+            <p id="modal-content" class="text-gray-200 mb-4 leading-relaxed"></p>
+            <div id="modal-sources" class="text-xs text-gray-400 border-t border-blue-400/20 pt-2 mt-4 space-y-1"></div>
+            <button onclick="closeFactModal()" class="absolute top-3 right-3 text-lg font-bold text-gray-400 hover:text-red-400 transition-colors">
+                &times;
+            </button>
+            <div id="modal-loading" class="hidden text-center py-8">
+                <div class="loader"></div>
+                <p class="mt-4 text-blue-300 font-medium">Consulting the knowledge grid...</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-auto">
+    </footer>
+
+    <script>
+        const apiKey = ""; 
+        const API_MODEL = 'gemini-2.5-flash-preview-05-20';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${apiKey}`;
+
+ 
+        const GRID_LETTERS_FINAL = [
+            ['F', 'L', 'O', 'P', 'P', 'Y', 'D', 'I', 'S', 'K'],
+            ['L', 'P', 'I', 'P', 'D', 'C', 'V', 'C', 'R', 'A'],
+            ['A', 'R', 'C', 'M', 'L', 'P', 'D', 'O', 'E', 'N'],
+            ['S', 'I', 'L', 'O', 'A', 'U', 'R', 'M', 'K', 'M'],
+            ['H', 'N', 'O', 'U', 'P', 'D', 'I', 'P', 'A', 'O'],
+            ['D', 'T', 'U', 'S', 'T', 'C', 'V', 'U', 'E', 'N'],
+            ['R', 'E', 'D', 'E', 'O', 'D', 'E', 'T', 'P', 'I'],
+            ['I', 'R', 'F', 'B', 'P', 'Q', 'U', 'E', 'S', 'T'],
+            ['V', 'K', 'E', 'Y', 'B', 'O', 'A', 'R', 'D', 'O'], 
+            ['E', 'D', 'A', 'P', 'E', 'S', 'U', 'O', 'M', 'R'], 
+        ];
+
+
+const TARGET_WORDS = new Set([
+  'A', 'AM', 'AN', 'ARC', 'AS', 'BE', 'BOARD', 'BY', 'BYE', 'CLOUD',
+  'COMPUTE', 'COMPUTER', 'CPU', 'CV', 'DAP', 'DISK', 'DOE', 'DO', 'DRIVE',
+  'DIP', 'FLOPPY', 'FLOPPYDISK', 'FLASH', 'FLASHDRIVE', 'IN', 'IP',
+  'I', 'IS', 'IT', 'KEY', 'KEYBOARD', 'LAP', 'LAPTOP', 'LOUD', 'ME', 'MONITOR',
+  'MOUSE', 'MOUSEPAD', 'NO', 'ON', 'OR', 'PAD', 'PEA', 'PI', 'PIP', 'POT',
+  'PRINT', 'PRINTER', 'PUT', 'QUEST', 'RED', 'SO', 'TOP', 'TO', 'UP', 'US',
+  'USE' , 'MAN','APE','DVD', 'CD', 'AI'
+]);
+
+
+
+        // --- Game State ---
+        let isSelecting = false;
+        let startCell = null;
+        const foundWords = new Map(); // Word -> Color map
+        
+        // --- DOM Elements ---
+        const grid = document.getElementById('word-grid');
+        const foundList = document.getElementById('found-words-list');
+        const foundCountSpan = document.getElementById('found-count');
+        const selectionDisplay = document.getElementById('selection-display'); 
+        const modal = document.getElementById('llm-fact-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const modalSources = document.getElementById('modal-sources');
+        const modalLoading = document.getElementById('modal-loading');
+        
+        const totalWordCount = TARGET_WORDS.size; 
+        const defaultTitleText = "Word Search 🔍";
+
+        // --- Utility Functions ---
+        
+        /** Reverses a string. Used to check for reverse-selected words. */
+        const reverseString = (str) => str.split('').reverse().join('');
+
+        /** Generates a random semi-transparent color for found words. */
+        const getRandomRgbaColor = () => {
+            const r = Math.floor(Math.random() * 256); 
+            const g = Math.floor(Math.random() * 256); 
+            const b = Math.floor(Math.random() * 256);
+            return `rgba(${r}, ${g}, ${b}, 0.3)`; 
+        };
+
+        /** Converts row/col indices to a unique ID string. */
+        const toId = (r, c) => `cell-${r}-${c}`;
+
+        /** Converts a cell ID string back to row/col indices. */
+        const fromId = (id) => id.split('-').slice(1).map(n => parseInt(n));
+
+        /** Clears selection highlight from all cells that are not permanently 'found'. */
+        const clearSelectionHighlight = () => {
+            document.querySelectorAll('.selecting').forEach(cell => { 
+                cell.classList.remove('selecting');
+            });
+        };
+
+        /**
+         * Gets the letters and path between two cells, supporting all 8 directions.
+         * The path MUST be a straight line (horizontal, vertical, or 45-degree diagonal).
+         */
+        const getWordPath = (r1, c1, r2, c2) => {
+            
+            // Allow single-cell selection
+            if (r1 === r2 && c1 === c2) {
+                const word = GRID_LETTERS_FINAL[r1][c1];
+                return { word, path: [{ r: r1, c: c1 }] };
+            }
+
+            // Determine the direction vectors (dr/dc will be -1, 0, or 1)
+            const dr = Math.sign(r2 - r1);
+            const dc = Math.sign(c2 - c1);
+            
+            // Check for a valid path (must be straight: horizontal, vertical, or diagonal)
+            const isValidPath = (
+                (dr === 0 && dc !== 0) || // Horizontal
+                (dr !== 0 && dc === 0) || // Vertical
+                (Math.abs(r2 - r1) === Math.abs(c2 - c1) && dr !== 0 && dc !== 0) // Diagonal
+            );
+
+            if (!isValidPath) {
+                // If the start and end cell don't form a straight line, return empty
+                return { word: '', path: [] };
+            }
+
+            let word = '';
+            const path = [];
+            let r = r1;
+            let c = c1;
+
+            // Iterate along the path, STARTING at (r1, c1) and GOING towards (r2, c2)
+            while (true) {
+                word += GRID_LETTERS_FINAL[r][c];
+                path.push({ r, c });
+
+                // Check if the target cell is reached
+                if (r === r2 && c === c2) break; 
+
+                // Move to the next cell in the determined direction
+                r += dr;
+                c += dc;
+
+                // Safety break if somehow outside bounds or too long
+                if (r < 0 || r >= GRID_LETTERS_FINAL.length || c < 0 || c >= GRID_LETTERS_FINAL[0].length) {
+                    return { word: '', path: [] }; 
+                }
+            }
+
+            return { word, path };
+        };
+
+        /** Updates the list of found words and makes them clickable. */
+        const updateFoundWordsList = () => {
+            foundCountSpan.textContent = foundWords.size;
+            foundList.innerHTML = '';
+            
+            const foundWordsInReverseOrder = Array.from(foundWords.keys()).reverse();
+
+            foundWordsInReverseOrder.forEach(word => {
+                const li = document.createElement('li');
+                li.textContent = word;
+                li.dataset.word = word; 
+                const wordColor = foundWords.get(word);
+
+                li.classList.add('found-word-item'); 
+                li.style.backgroundColor = wordColor; 
+                
+                li.addEventListener('click', () => fetchFactAboutWord(word));
+
+                foundList.appendChild(li);
+            });
+        };
+
+        /** Displays the win message in the title area. */
+        const showWinMessage = () => {
+            selectionDisplay.classList.remove('default-title');
+            selectionDisplay.textContent = "🎉 Well Done " + totalWordCount + " Words Found!";
+            selectionDisplay.style.color = '#38bdf8'; 
+            selectionDisplay.style.textShadow = '0 0 20px #38bdf8'; 
+        }
+
+        // --- LLM Modal & API Logic (mostly unchanged) ---
+
+        /** Displays the modal with fact content. */
+        const openFactModal = (word, fact, sources) => {
+            modalLoading.classList.add('hidden');
+            modalTitle.textContent = `Fact Check: "${word}"`;
+            modalContent.textContent = fact;
+            modalSources.innerHTML = '';
+
+            if (sources.length > 0) {
+                modalSources.innerHTML = '<p class="font-bold mb-1">Sources:</p>';
+                sources.forEach(source => {
+                    const link = document.createElement('a');
+                    link.href = source.uri;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.classList.add('text-blue-400', 'hover:text-blue-200', 'block', 'truncate');
+                    link.textContent = source.title || source.uri;
+                    modalSources.appendChild(link);
+                });
+            } else {
+                modalSources.textContent = 'No external sources cited.';
+            }
+
+            modal.style.display = 'flex'; // Show modal
+        };
+
+        /** Hides the modal. */
+        const closeFactModal = () => {
+            modal.style.display = 'none';
+        };
+
+        /** Fetches a fact about the word using the Gemini API with exponential backoff. */
+        const fetchFactAboutWord = async (word, attempt = 0) => {
+            
+            modal.style.display = 'flex';
+            modalTitle.textContent = `Fact Check: "${word}"`;
+            modalContent.textContent = '';
+            modalSources.innerHTML = '';
+            modalLoading.classList.remove('hidden');
+
+            const systemPrompt = "You are a fun, engaging, and concise technical encyclopedia. Provide a single, short paragraph (max 3 sentences) with an interesting fact or definition about the provided word. Focus on the context of computing or technology if applicable, otherwise provide a general fact.";
+            const userQuery = `What is a fun or interesting fact about the word: ${word}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                let factText = "Could not retrieve a fact. The LLM provided an empty response.";
+                let sources = [];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    factText = candidate.content.parts[0].text;
+                    
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+                }
+                
+                openFactModal(word, factText, sources);
+
+            } catch (error) {
+                console.error(`Attempt ${attempt + 1}: Error fetching fact for ${word}:`, error);
+
+                // Exponential Backoff Retry Logic
+                if (attempt < 2) { // Try up to 3 times
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchFactAboutWord(word, attempt + 1);
+                }
+
+                modalLoading.classList.add('hidden');
+                modalTitle.textContent = `Fact Check: "${word}" (Error)`;
+                modalContent.textContent = "Sorry, I couldn't connect to the knowledge grid or retrieve a fact after multiple attempts. Please try again later!";
+                modalSources.innerHTML = '';
+            }
+        };
+
+
+        // --- Event Handlers (Mouse/Touch) ---
+
+        const handleStart = (event) => {
+            if (event.type === 'touchstart') {
+                event.preventDefault();
+            }
+            if (foundWords.size === totalWordCount) return;
+
+            const target = event.targetTouches ? event.targetTouches[0].target : event.target;
+            
+            if (target.classList.contains('grid-cell')) {
+                clearSelectionHighlight(); 
+                
+                isSelecting = true;
+                startCell = target;
+                startCell.classList.add('selecting');
+
+                selectionDisplay.classList.remove('default-title');
+                selectionDisplay.textContent = startCell.textContent;
+                selectionDisplay.style.color = '#ffffff'; 
+                selectionDisplay.style.textShadow = '0 0 5px rgba(56, 189, 248, 0.7)';
+            }
+        };
+        
+        const handleMove = (event) => {
+            if (!isSelecting || !startCell) return;
+            
+            const clientX = event.clientX || (event.touches ? event.touches[0].clientX : null);
+            const clientY = event.clientY || (event.touches ? event.touches[0].clientY : null);
+            
+            if (clientX === null || clientY === null) return;
+
+            const currentCell = document.elementFromPoint(clientX, clientY);
+
+            // Clear temporary highlights from ALL cells
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('selecting');
+            });
+            
+            if (!currentCell || !currentCell.classList.contains('grid-cell')) {
+                // If cursor is outside the grid but selecting, ensure the start cell remains highlighted
+                startCell.classList.add('selecting');
+                selectionDisplay.textContent = startCell.textContent;
+                return;
+            }
+
+            // Get path between start and current cell
+            const [r1, c1] = fromId(startCell.id);
+            const [r2, c2] = fromId(currentCell.id);
+            const { path, word } = getWordPath(r1, c1, r2, c2);
+
+            // Highlight all cells in the valid path (applying 'selecting' class)
+            path.forEach(({ r, c }) => {
+                document.getElementById(toId(r, c)).classList.add('selecting');
+            });
+
+            // Update dynamic selection display (Shows the word on top)
+            let displayWord = word;
+            
+            // Check for reverse match for display purpose
+            const reversedWordCheck = reverseString(word).toUpperCase();
+            if (word.length > 0 && !TARGET_WORDS.has(word.toUpperCase()) && TARGET_WORDS.has(reversedWordCheck)) {
+                displayWord = reversedWordCheck;
+            }
+
+            if (word.length > 0) {
+                selectionDisplay.textContent = displayWord;
+            } else {
+                 selectionDisplay.textContent = startCell.textContent;
+            }
+        };
+
+        const handleEnd = () => {
+            if (!isSelecting || !startCell) return;
+
+            // 1. Get all cells currently highlighted as part of the selection path.
+            const selectedCells = Array.from(document.querySelectorAll('.selecting')); 
+            
+            // 2. Revert title immediately after selection attempt
+            selectionDisplay.classList.add('default-title');
+            selectionDisplay.textContent = defaultTitleText;
+            selectionDisplay.style.color = '#ffffff';
+            selectionDisplay.style.textShadow = 'none';
+
+            let verifiedWord = '';
+            let finalPath = [];
+            let wordFound = false;
+
+            // 3. Process the word only if at least one cell is selected
+            if (selectedCells.length >= 1) { 
+                
+                // --- Step 3a: Determine the forward word and path ---
+                if (selectedCells.length === 1) {
+                    verifiedWord = selectedCells[0].textContent.toUpperCase();
+                    finalPath = [{ r: fromId(selectedCells[0].id)[0], c: fromId(selectedCells[0].id)[1] }];
+                } else {
+                    const startCoords = fromId(selectedCells[0].id);
+                    const endCoords = fromId(selectedCells[selectedCells.length - 1].id);
+                    const pathCheck = getWordPath(startCoords[0], startCoords[1], endCoords[0], endCoords[1]);
+                    verifiedWord = pathCheck.word.toUpperCase();
+                    finalPath = pathCheck.path;
+                }
+                
+                // --- Step 3b: Check Forward and Reverse ---
+                let wordToSave = '';
+
+                // Check 1: Forward selection (e.g., E Y B -> "EYB")
+                if (TARGET_WORDS.has(verifiedWord) && !foundWords.has(verifiedWord)) {
+                    wordToSave = verifiedWord;
+                    wordFound = true;
+                } 
+                
+                // Check 2: Reverse selection (e.g., E Y B reversed -> "BYE")
+                if (!wordFound && finalPath.length > 1) { // Only reverse check words > 1 length
+                    const reversedWord = reverseString(verifiedWord);
+
+                    if (TARGET_WORDS.has(reversedWord) && !foundWords.has(reversedWord)) {
+                        wordToSave = reversedWord;
+                        wordFound = true;
+                    }
+                }
+
+                // 4. If a word (forward or reverse) was found, save and highlight
+                if (wordFound) {
+                    const newWordColor = getRandomRgbaColor();
+                    foundWords.set(wordToSave, newWordColor);
+
+                    // Apply permanent styles to the cells in the final path
+                    finalPath.forEach(({ r, c }) => {
+                        const cell = document.getElementById(toId(r, c));
+                        cell.classList.remove('selecting');
+                        // Add permanent 'found' class
+                        cell.classList.add('found'); 
+                        // Apply permanent background color for this word
+                        cell.style.backgroundColor = newWordColor; 
+                    });
+                    
+                    updateFoundWordsList();
+                    
+                    // Check for overall game win
+                    if (foundWords.size === totalWordCount) {
+                        showWinMessage();
+                    } 
+                }
+            }
+            
+            // 5. Clean up temporary selection from all cells after processing
+            clearSelectionHighlight();
+            isSelecting = false;
+            startCell = null;
+        };
+
+
+        // --- Initialization ---
+
+        /** Builds the HTML grid and initializes the game. */
+        const initGame = () => {
+            grid.innerHTML = '';
+            
+            grid.style.setProperty('grid-template-columns', `repeat(${GRID_LETTERS_FINAL[0].length}, 1fr)`);
+
+            GRID_LETTERS_FINAL.forEach((row, r) => {
+                row.forEach((letter, c) => {
+                    const cell = document.createElement('div');
+                    cell.id = toId(r, c);
+                    cell.textContent = letter.toUpperCase(); 
+                    cell.classList.add('grid-cell');
+                    grid.appendChild(cell);
+                });
+            });
+
+            // Set up event listeners on the entire document for both mouse and touch
+            grid.addEventListener('mousedown', handleStart);
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+            
+            // Touch support
+            grid.addEventListener('touchstart', handleStart, { passive: false });
+            document.addEventListener('touchmove', handleMove, { passive: false });
+            document.addEventListener('touchend', handleEnd);
+            
+            updateFoundWordsList();
+        };
+
+        // Start the game when the page loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>
